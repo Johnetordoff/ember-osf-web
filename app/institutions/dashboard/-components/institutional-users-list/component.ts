@@ -5,10 +5,13 @@ import { inject as service } from '@ember/service';
 import { waitFor } from '@ember/test-waiters';
 import { restartableTask, timeout } from 'ember-concurrency';
 import Intl from 'ember-intl/services/intl';
+import config from 'ember-osf-web/config/environment';
 
 import InstitutionModel from 'ember-osf-web/models/institution';
 import InstitutionDepartmentsModel from 'ember-osf-web/models/institution-department';
 import Analytics from 'ember-osf-web/services/analytics';
+import Fetch from 'ember-fetch/services/fetch';
+const { OSF: { apiUrl } } = config;
 
 interface Column {
     key: string;
@@ -26,6 +29,7 @@ interface InstitutionalUsersListArgs {
 export default class InstitutionalUsersList extends Component<InstitutionalUsersListArgs> {
     @service analytics!: Analytics;
     @service intl!: Intl;
+    @service declare fetch: Fetch;
 
     institution?: InstitutionModel;
 
@@ -36,6 +40,9 @@ export default class InstitutionalUsersList extends Component<InstitutionalUsers
     @tracked sort = 'user_name';
     @tracked selectedDepartments: string[] = [];
     @tracked filteredUsers = [];
+    @tracked messageModalShown = false;
+    @tracked messageText = '';
+    @tracked currentUserId = null;
 
     @tracked columns: Column[] = [
         {
@@ -139,9 +146,7 @@ export default class InstitutionalUsersList extends Component<InstitutionalUsers
     ];
 
     @tracked selectedColumns: string[] = this.columns.filter(col => col.selected).map(col => col.key);
-    // Private properties
-    @tracked hasOrcid = false;
-    @tracked totalUsers = 0;
+
     orcidUrlPrefix = 'https://orcid.org/';
 
     @action
@@ -238,4 +243,55 @@ export default class InstitutionalUsersList extends Component<InstitutionalUsers
         this.hasOrcid = !hasOrcid;
     }
 
+    @action
+    openMessageModal(userId: string) {
+        this.currentUserId = userId;
+        this.messageModalShown = true;
+    }
+
+    @action
+    updateMessageText(event: Event) {
+        this.messageText = (event.target as HTMLTextAreaElement).value;
+    }
+
+    @action
+    async sendMessage() {
+        if (!this.currentUserId || !this.messageText.trim()) {
+            return;
+        }
+
+        const payload = {
+            data: {
+                type: 'user-message',
+                attributes: {
+                    message_text: this.messageText.trim(),
+                    message_type: 'institutional_request',
+                },
+                relationships: {
+                    institution: {
+                        data: {
+                            id: this.args.institution.id,
+                            type: 'institutions',
+                        },
+                    },
+                },
+            },
+        };
+
+        try {
+            const response = await fetch(apiUrl + `/v2/users/${this.currentUserId}/messages/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/vnd.api+json',
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error('Error sending message:', error);
+        } finally {
+            this.messageModalShown = false;
+            this.messageText = '';
+        }
+    }
 }

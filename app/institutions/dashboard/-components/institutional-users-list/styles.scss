@@ -306,3 +306,22 @@ input:checked + .slider::before {
     justify-content: flex-end;
     margin-right: 15px;
 }
+
+.icon-message {
+    opacity: 0;
+    color: $color-text-blue-dark;
+    border: none;
+    background: none;
+}
+
+.icon-message:hover {
+    opacity: 1;
+    color: $color-text-blue-dark;
+    border: none;
+    background: none;
+}
+
+.message-textarea {
+    min-width: 450px;
+    min-height: 280px;
+}
