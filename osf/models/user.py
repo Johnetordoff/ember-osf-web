@@ -644,7 +644,16 @@ class OSFUser(DirtyFieldsMixin, GuidMixin, BaseModel, AbstractBaseUser, Permissi
         OSFGroup = apps.get_model('osf.OSFGroup')
         return get_objects_for_user(self, 'member_group', OSFGroup, with_superuser=False)
 
-    def is_institutional_admin(self, institution):
+    def is_institutional_admin(self, institution=None):
+        """
+        Checks if user is admin of any or of a specific institution.
+        """
+        if not institution:
+            return self.groups.filter(
+                name__startswith='institution_',
+                name__endswith='_institutional_admins'
+            ).exists()
+
         group_name = institution.format_group('institutional_admins')
         return self.groups.filter(name=group_name).exists()
 
